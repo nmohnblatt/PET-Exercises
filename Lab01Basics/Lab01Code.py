@@ -36,6 +36,10 @@ def encrypt_message(K, message):
     plaintext = message.encode("utf8")
     
     ## YOUR CODE HERE
+    iv = urandom(16)
+    aes = Cipher.aes_128_gcm()
+
+    ciphertext, tag = aes.quick_gcm_enc(K, iv, plaintext)
 
     return (iv, ciphertext, tag)
 
@@ -45,6 +49,8 @@ def decrypt_message(K, iv, ciphertext, tag):
         In case the decryption fails, throw an exception.
     """
     ## YOUR CODE HERE
+    aes = Cipher.aes_128_gcm()
+    plain = aes.quick_gcm_dec(K, iv, ciphertext, tag)
 
     return plain.encode("utf8")
 
@@ -76,9 +82,9 @@ def is_point_on_curve(a, b, p, x, y):
     assert isinstance(b, Bn)
     assert isinstance(p, Bn) and p > 0
     assert (isinstance(x, Bn) and isinstance(y, Bn)) \
-           or (x == None and y == None)
+           or (x is None and y is None)
 
-    if x == None and y == None:
+    if x is None and y is None:
         return True
 
     lhs = (y * y) % p
@@ -101,9 +107,29 @@ def point_add(a, b, p, x0, y0, x1, y1):
     """
 
     # ADD YOUR CODE BELOW
-    xr, yr = None, None
-    
-    return (xr, yr)
+
+    # Check if one point is infinity. Return appropriate value
+    if is_point_on_curve(a, b, p, x0, y0) and is_point_on_curve(a, b, p, x1, y1):
+        if (x1 is None) and (y1 is None):
+            return x0, y0
+        elif (x0 is None) and (y0 is None):
+            return x1, y1
+
+        #
+        if (y1 == y0) and (x1 == x0):
+            raise Exception("EC Points must not be equal")
+        elif (y1 == y0.mod_mul(-1,p)) and (x1 == x0):
+            return None,None
+
+        slope = ((y1 - y0) * (x1 - x0).mod_inverse(p))%p
+
+        xr = (slope**2 - x0 - x1)%p
+        yr = (slope * (x0 - xr) - y0)%p
+        #xr, yr = None, None
+
+        return (xr, yr)
+    else:
+        raise Exception("At least one of the points is not on the curve")
 
 def point_double(a, b, p, x, y):
     """Define "doubling" an EC point.
