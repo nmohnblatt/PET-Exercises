@@ -109,14 +109,21 @@ def point_add(a, b, p, x0, y0, x1, y1):
 
     # ADD YOUR CODE BELOW
 
-    # Check if one point is infinity. Return appropriate value
+    # Check if points are on the curve
     if is_point_on_curve(a, b, p, x0, y0) and is_point_on_curve(a, b, p, x1, y1):
+        # Check if one point is infinity (identity). Return the appropriate value
         if (x1 is None) and (y1 is None):
-            return x0, y0
+            if (x0 is None) and (y0 is None):
+                return None, None
+            else:
+                return x0, y0
         elif (x0 is None) and (y0 is None):
-            return x1, y1
+            if (x1 is None) and (y1 is None):
+                return None, None
+            else:
+                return x1, y1
 
-        #
+        # Check that points are different
         if (y1 == y0) and (x1 == x0):
             raise Exception("EC Points must not be equal")
         elif (y1 == y0.mod_mul(-1,p)) and (x1 == x0):
@@ -138,16 +145,23 @@ def point_double(a, b, p, x, y):
 
      Reminder:
         lam = (3 * xp ^ 2 + a) * (2 * yp) ^ -1 (mod p)
-        xr  = lam ^ 2 - 2 * xp
+        xr  = lam ^ 2 - 2 * xp (mod p)
         yr  = lam * (xp - xr) - yp (mod p)
 
     Returns the point representing the double of the input (x, y).
     """  
 
     # ADD YOUR CODE BELOW
-    xr, yr = None, None
+    if is_point_on_curve(a, b, p, x, y):
+        if (x is None) and (y is None):
+            return None, None
+        slope = ((3 * x**2 + a) * (2 * y).mod_inverse(p)) %p
+        xr = (slope**2 - 2*x)%p
+        yr = (slope * (x - xr) - y) %p
 
-    return xr, yr
+        return xr, yr
+    else:
+        raise Exception("Point not on curve")
 
 def point_scalar_multiplication_double_and_add(a, b, p, x, y, scalar):
     """
@@ -167,7 +181,9 @@ def point_scalar_multiplication_double_and_add(a, b, p, x, y, scalar):
     P = (x, y)
 
     for i in range(scalar.num_bits()):
-        pass ## ADD YOUR CODE HERE
+        if scalar.is_bit_set(i): # Check if the i-th bit is set and perform addition
+            Q = point_add(a, b, p, Q[0], Q[1], P[0], P[1])
+        P = point_double(a, b, p, P[0], P[1])
 
     return Q
 
@@ -193,7 +209,12 @@ def point_scalar_multiplication_montgomerry_ladder(a, b, p, x, y, scalar):
     R1 = (x, y)
 
     for i in reversed(range(0,scalar.num_bits())):
-        pass ## ADD YOUR CODE HERE
+        if not scalar.is_bit_set(i):
+            R1 = point_add(a, b, p, R0[0], R0[1], R1[0], R1[1])
+            R0 = point_double(a, b, p, R0[0], R0[1])
+        else:
+            R0 = point_add(a, b, p, R0[0], R0[1], R1[0], R1[1])
+            R1 = point_double(a, b, p, R1[0], R1[1])
 
     return R0
 

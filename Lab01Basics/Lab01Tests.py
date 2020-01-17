@@ -174,6 +174,14 @@ def test_Point_addition():
     assert gx0 == xp
     assert gy0 == yp
 
+    ## Ensure addition of two neutrals returns a neutral
+    # (extra test by me)
+    testx, testy = None, None
+    xp, yp = point_add(a, b, p, None, None, testx, testy)
+    assert is_point_on_curve(a, b, p, xp, yp)
+    assert xp is testx
+    assert yp is testy
+
     ## An error is raised in case the points are equal
     with raises(Exception) as excinfo:
         point_add(a, b, p, gx0, gy0, gx0, gy0)
