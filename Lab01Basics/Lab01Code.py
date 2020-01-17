@@ -245,15 +245,17 @@ def ecdsa_sign(G, priv_sign, message):
     plaintext =  message.encode("utf8")
 
     ## YOUR CODE HERE
-
+    digest = sha256(plaintext).digest()
+    sig = do_ecdsa_sign(G, priv_sign, digest)
     return sig
 
 def ecdsa_verify(G, pub_verify, message, sig):
     """ Verify the ECDSA signature on the message """
-    plaintext =  message.encode("utf8")
+    plaintext = message.encode("utf8")
 
     ## YOUR CODE HERE
-
+    digest = sha256(plaintext).digest()
+    res = do_ecdsa_verify(G, pub_verify, sig, digest)
     return res
 
 #####################################################
