@@ -245,8 +245,8 @@ def ecdsa_sign(G, priv_sign, message):
     plaintext =  message.encode("utf8")
 
     ## YOUR CODE HERE
-    digest = sha256(plaintext).digest()
-    sig = do_ecdsa_sign(G, priv_sign, digest)
+    digest = sha256(plaintext).digest() # securely hash the message using the built-in library
+    sig = do_ecdsa_sign(G, priv_sign, digest) # sign using the private key and the function provided in petlib
     return sig
 
 def ecdsa_verify(G, pub_verify, message, sig):
@@ -254,8 +254,8 @@ def ecdsa_verify(G, pub_verify, message, sig):
     plaintext = message.encode("utf8")
 
     ## YOUR CODE HERE
-    digest = sha256(plaintext).digest()
-    res = do_ecdsa_verify(G, pub_verify, sig, digest)
+    digest = sha256(plaintext).digest() # securely hash the message using the built-in library
+    res = do_ecdsa_verify(G, pub_verify, sig, digest) # verify using the public key and the function provided in petlib
     return res
 
 #####################################################
@@ -284,15 +284,34 @@ def dh_encrypt(pub, message, aliceSig = None):
     """
     
     ## YOUR CODE HERE
-    pass
+    G, alice_priv, alice_pub = dh_get_key() # derive fresh keys
+    shared_secret = alice_priv * pub # derive the shared secret
+    session_key = sha256(shared_secret.export()).digest() # use shared secret to derive a unique 256-bit session key
+    plaintext = message.encode("utf8") # prepare the plaintext for encryption
+    iv = urandom(32) # generate a 256-bit random value
+    aes = Cipher.aes_256_gcm() # Initialize AES-GCM with 256 bit keys
+    ciphertext, tag = aes.quick_gcm_enc(session_key, iv, plaintext) # perform encryption using AES
+    bundle = (alice_pub, iv, ciphertext, tag)
 
-def dh_decrypt(priv, ciphertext, aliceVer = None):
+    return bundle
+
+def dh_decrypt(priv, bundle, aliceVer = None):
     """ Decrypt a received message encrypted using your public key, 
     of which the private key is provided. Optionally verify 
     the message came from Alice using her verification key."""
     
     ## YOUR CODE HERE
-    pass
+    if len(bundle) != 4:
+            raise Exception("decryption failed: missing input arguments")
+    alice_pub, iv, ciphertext, tag = bundle
+    shared_secret = priv * alice_pub # derive the shared secret
+    session_key = sha256(shared_secret.export()).digest() # use shared secret to derive a unique 256-bit session key
+    aes = Cipher.aes_256_gcm() # Initialize AES-GCM with 256 bit keys
+    plain = aes.quick_gcm_dec(session_key, iv, ciphertext, tag) # perform decryption using AES
+
+    return plain.encode("utf8")
+
+
 
 ## NOTE: populate those (or more) tests
 #  ensure they run using the "py.test filename" command.
@@ -300,13 +319,68 @@ def dh_decrypt(priv, ciphertext, aliceVer = None):
 #  $ py.test-2.7 --cov-report html --cov Lab01Code Lab01Code.py 
 
 def test_encrypt():
-    assert False
+    G, bob_priv, bob_pub = dh_get_key()
+    message = u"Hello World!"
+    bundled_ciphertext = dh_encrypt(bob_pub, message, aliceSig=None)
+    alice_pub, iv, ciphertext, tag = bundled_ciphertext
+
+    assert len(iv) == 32
+    assert len(ciphertext) == len(message)
+    assert len(tag) == 16
 
 def test_decrypt():
-    assert False
+    G, bob_priv, bob_pub = dh_get_key()
+    message = u"Hello World!"
+    bundled_ciphertext = dh_encrypt(bob_pub, message, aliceSig=None)
+    alice_pub, iv, ciphertext, tag = bundled_ciphertext
+
+    assert len(iv) == 32
+    assert len(ciphertext) == len(message)
+    assert len(tag) == 16
+
+    m = dh_decrypt(bob_priv, bundled_ciphertext)
+    assert m == message
 
 def test_fails():
-    assert False
+    from pytest import raises
+
+    G, bob_priv, bob_pub = dh_get_key()
+    message = u"Hello World!"
+    bundled_ciphertext = dh_encrypt(bob_pub, message, aliceSig=None)
+    alice_pub, iv, ciphertext, tag = bundled_ciphertext
+    G, test_priv, test_pub = dh_get_key()
+
+    with raises(Exception) as excinfo:
+        dh_decrypt(bob_priv, (iv, ciphertext, tag))
+    assert 'decryption failed' in str(excinfo.value)
+
+    with raises(Exception) as excinfo:
+        dh_decrypt(bob_priv, (alice_pub, iv, ciphertext))
+    assert 'decryption failed' in str(excinfo.value)
+
+    with raises(Exception) as excinfo:
+        dh_decrypt(bob_priv, (alice_pub, tag))
+    assert 'decryption failed' in str(excinfo.value)
+
+    with raises(Exception) as excinfo:
+        dh_decrypt(bob_priv, (alice_pub, iv, ciphertext*2, tag))
+    assert 'decryption failed' in str(excinfo.value)
+
+    with raises(Exception) as excinfo:
+        dh_decrypt(bob_priv, (test_pub, iv, ciphertext, tag))
+    assert 'decryption failed' in str(excinfo.value)
+
+    with raises(Exception) as excinfo:
+        dh_decrypt(bob_priv, (alice_pub, iv, urandom(len(message)), tag))
+    assert 'decryption failed' in str(excinfo.value)
+
+    with raises(Exception) as excinfo:
+        dh_decrypt(bob_priv, (alice_pub, iv, ciphertext, urandom(16)))
+    assert 'decryption failed' in str(excinfo.value)
+
+    with raises(Exception) as excinfo:
+        dh_decrypt(bob_priv, (alice_pub, urandom(32), ciphertext, tag))
+    assert 'decryption failed' in str(excinfo.value)
 
 #####################################################
 # TASK 6 -- Time EC scalar multiplication
@@ -319,4 +393,20 @@ def test_fails():
 #           - Fix one implementation to not leak information.
 
 def time_scalar_mul():
-    pass
+    import time
+    G = EcGroup(713) # NIST curve
+    d = G.parameters()
+    a, b, p = d["a"], d["b"], d["p"]
+    g = G.generator()
+    gx0, gy0 = g.get_affine()
+
+    r = G.order().random()
+
+    gx2, gy2 = (r*g).get_affine()
+
+    t0 = time.clock()
+    x2, y2 = point_scalar_multiplication_montgomerry_ladder(a, b, p, gx0, gy0, r)
+    t1 = time.clock()
+    time_elapsed = t1 - t0
+    print time_elapsed
+
