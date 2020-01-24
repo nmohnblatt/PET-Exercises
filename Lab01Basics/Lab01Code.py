@@ -285,14 +285,22 @@ def dh_encrypt(pub, message, aliceSig = None):
     
     ## YOUR CODE HERE
     G, alice_priv, alice_pub = dh_get_key() # derive fresh keys
+
     shared_secret = alice_priv * pub # derive the shared secret
+
     session_key = sha256(shared_secret.export()).digest() # use shared secret to derive a unique 256-bit session key
+
     plaintext = message.encode("utf8") # prepare the plaintext for encryption
     iv = urandom(32) # generate a 256-bit random value
     aes = Cipher.aes_256_gcm() # Initialize AES-GCM with 256 bit keys
     ciphertext, tag = aes.quick_gcm_enc(session_key, iv, plaintext) # perform encryption using AES
-    bundle = (alice_pub, iv, ciphertext, tag)
 
+    # check whether to implement the signature
+    if aliceSig is not None:
+        sig = ecdsa_sign(G, aliceSig, message)
+        bundle = (alice_pub, iv, ciphertext, tag, sig)
+    else:
+        bundle = (alice_pub, iv, ciphertext, tag)
     return bundle
 
 def dh_decrypt(priv, bundle, aliceVer = None):
@@ -301,15 +309,34 @@ def dh_decrypt(priv, bundle, aliceVer = None):
     the message came from Alice using her verification key."""
     
     ## YOUR CODE HERE
-    if len(bundle) != 4:
-            raise Exception("decryption failed: missing input arguments")
-    alice_pub, iv, ciphertext, tag = bundle
+
+    # Check whether signature was implemented. Unpack the bundle accordingly
+    if aliceVer is None:
+        if len(bundle) != 4:
+                raise Exception("decryption failed: missing input arguments")
+        else:
+            alice_pub, iv, ciphertext, tag = bundle
+    else:
+        if len(bundle) != 5:
+                raise Exception("decryption failed: missing input arguments")
+        else:
+            alice_pub, iv, ciphertext, tag, sig = bundle
+
+
+
     shared_secret = priv * alice_pub # derive the shared secret
     session_key = sha256(shared_secret.export()).digest() # use shared secret to derive a unique 256-bit session key
     aes = Cipher.aes_256_gcm() # Initialize AES-GCM with 256 bit keys
     plain = aes.quick_gcm_dec(session_key, iv, ciphertext, tag) # perform decryption using AES
 
-    return plain.encode("utf8")
+    message = plain.encode("utf8")
+
+    if (aliceVer is not None):
+        sign_check = ecdsa_verify(EcGroup(), aliceVer, message, sig)
+        if not sign_check:
+            raise Exception("decryption failed: signature does not verify")
+
+    return message
 
 
 
@@ -327,6 +354,17 @@ def test_encrypt():
     assert len(iv) == 32
     assert len(ciphertext) == len(message)
     assert len(tag) == 16
+
+def test_encrypt_with_sig():
+    G, bob_priv, bob_pub = dh_get_key()
+    message = u"Hello World!"
+
+    G, aliceSig, aliceVer = ecdsa_key_gen()
+
+    bundled_ciphertext = dh_encrypt(bob_pub, message, aliceSig)
+    alice_pub, iv, ciphertext, tag, sig = bundled_ciphertext
+
+    assert ecdsa_verify(G, aliceVer, message, sig)
 
 def test_decrypt():
     G, bob_priv, bob_pub = dh_get_key()
@@ -381,6 +419,24 @@ def test_fails():
     with raises(Exception) as excinfo:
         dh_decrypt(bob_priv, (alice_pub, urandom(32), ciphertext, tag))
     assert 'decryption failed' in str(excinfo.value)
+
+    G, aliceSig, aliceVer = ecdsa_key_gen()
+
+    bundled_ciphertext = dh_encrypt(bob_pub, message, aliceSig)
+    alice_pub, iv, ciphertext, tag, sig = bundled_ciphertext
+    sig2 = ecdsa_sign(G, aliceSig, "some other message")
+
+    with raises(Exception) as excinfo:
+        dh_decrypt(bob_priv, (alice_pub, iv, ciphertext, tag, sig2), aliceVer)
+    assert 'decryption failed' in str(excinfo.value)
+
+    G, attackerSig, attackerVer = ecdsa_key_gen()
+    sig3 = ecdsa_sign(G, attackerSig, "some other message")
+
+    with raises(Exception) as excinfo:
+        dh_decrypt(bob_priv, (alice_pub, iv, ciphertext, tag, sig3), aliceVer)
+    assert 'decryption failed' in str(excinfo.value)
+
 
 #####################################################
 # TASK 6 -- Time EC scalar multiplication
