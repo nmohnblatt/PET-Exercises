@@ -296,11 +296,11 @@ def dh_encrypt(pub, message, aliceSig = None):
     ciphertext, tag = aes.quick_gcm_enc(session_key, iv, plaintext) # perform encryption using AES
 
     # check whether to implement the signature
-    if aliceSig is not None:
+    if aliceSig is None:
+        bundle = (alice_pub, iv, ciphertext, tag)
+    else:
         sig = ecdsa_sign(G, aliceSig, message)
         bundle = (alice_pub, iv, ciphertext, tag, sig)
-    else:
-        bundle = (alice_pub, iv, ciphertext, tag)
     return bundle
 
 def dh_decrypt(priv, bundle, aliceVer = None):
