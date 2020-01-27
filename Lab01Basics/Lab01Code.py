@@ -476,6 +476,14 @@ def test_fails():
 #           - Fix one implementation to not leak information.
 
 def time_scalar_mul(N=100):
+    # Calculate the correlation between the number of bits set in the scalar and the time it takes to run multiplication
+    # using the double-and-add algorithm. While we expect to find a strong linear relationship (one extra point addition
+    # each time a bit is set), this is not what is observed: correlation between number of set bits and time elapsed is
+    # usually between 0 and 0.4.
+    #
+    # NOTE: for this function to run, you will need to install the scipy package
+    #
+
     import time
     from scipy.stats import pearsonr
 
