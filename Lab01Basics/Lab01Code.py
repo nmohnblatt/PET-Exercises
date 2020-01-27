@@ -379,6 +379,22 @@ def test_decrypt():
     m = dh_decrypt(bob_priv, bundled_ciphertext)
     assert m == message
 
+def test_decrypt_with_sig():
+    G, bob_priv, bob_pub = dh_get_key()
+    message = u"Hello World!"
+
+    G, aliceSig, aliceVer = ecdsa_key_gen()
+
+    bundled_ciphertext = dh_encrypt(bob_pub, message, aliceSig)
+    alice_pub, iv, ciphertext, tag, sig = bundled_ciphertext
+
+    assert len(iv) == 32
+    assert len(ciphertext) == len(message)
+    assert len(tag) == 16
+
+    m = dh_decrypt(bob_priv, bundled_ciphertext, aliceVer)
+    assert m == message
+
 def test_fails():
     from pytest import raises
 
@@ -448,7 +464,7 @@ def test_fails():
 #           - Print reports on timing dependencies on secrets.
 #           - Fix one implementation to not leak information.
 
-def time_scalar_mul():
+def time_scalar_mul(r=None):
     import time
     G = EcGroup(713) # NIST curve
     d = G.parameters()
@@ -456,13 +472,15 @@ def time_scalar_mul():
     g = G.generator()
     gx0, gy0 = g.get_affine()
 
-    r = G.order().random()
-
-    gx2, gy2 = (r*g).get_affine()
+    if r is None:
+        r = G.order().random()
+    else:
+        r = Bn.from_decimal(str(r))
 
     t0 = time.clock()
-    x2, y2 = point_scalar_multiplication_montgomerry_ladder(a, b, p, gx0, gy0, r)
+    x2, y2 = point_scalar_multiplication_double_and_add(a, b, p, gx0, gy0, r)
     t1 = time.clock()
     time_elapsed = t1 - t0
-    print time_elapsed
+
+    return time_elapsed, r
 
