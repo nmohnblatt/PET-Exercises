@@ -30,19 +30,21 @@ import petlib
 from os import urandom
 from petlib.cipher import Cipher
 
+
 def encrypt_message(K, message):
     """ Encrypt a message under a key K """
 
     plaintext = message.encode("utf8")
-    
+
     ## YOUR CODE HERE
 
-    iv = urandom(16) # get random 16byte IV
-    aes = Cipher.aes_128_gcm() # Initialize AES-GCM with 128 bit keys
+    iv = urandom(16)  # get random 16byte IV
+    aes = Cipher.aes_128_gcm()  # Initialize AES-GCM with 128 bit keys
 
-    ciphertext, tag = aes.quick_gcm_enc(K, iv, plaintext) # perform encryption
+    ciphertext, tag = aes.quick_gcm_enc(K, iv, plaintext)  # perform encryption
 
     return (iv, ciphertext, tag)
+
 
 def decrypt_message(K, iv, ciphertext, tag):
     """ Decrypt a cipher text under a key K 
@@ -50,10 +52,11 @@ def decrypt_message(K, iv, ciphertext, tag):
         In case the decryption fails, throw an exception.
     """
     ## YOUR CODE HERE
-    aes = Cipher.aes_128_gcm() # Initialize AES-GCM with 128 bit keys
-    plain = aes.quick_gcm_dec(K, iv, ciphertext, tag) # perform decryption
+    aes = Cipher.aes_128_gcm()  # Initialize AES-GCM with 128 bit keys
+    plain = aes.quick_gcm_dec(K, iv, ciphertext, tag)  # perform decryption
 
     return plain.encode("utf8")
+
 
 #####################################################
 # TASK 3 -- Understand Elliptic Curve Arithmetic
@@ -89,7 +92,7 @@ def is_point_on_curve(a, b, p, x, y):
         return True
 
     lhs = (y * y) % p
-    rhs = (x*x*x + a*x + b) % p
+    rhs = (x * x * x + a * x + b) % p
     on_curve = (lhs == rhs)
 
     return on_curve
@@ -126,18 +129,19 @@ def point_add(a, b, p, x0, y0, x1, y1):
         # Check that points are different
         if (y1 == y0) and (x1 == x0):
             raise Exception("EC Points must not be equal")
-        elif (y1 == y0.mod_mul(-1,p)) and (x1 == x0):
-            return None,None
+        elif (y1 == y0.mod_mul(-1, p)) and (x1 == x0):
+            return None, None
 
-        slope = ((y1 - y0) * (x1 - x0).mod_inverse(p))%p
+        slope = ((y1 - y0) * (x1 - x0).mod_inverse(p)) % p
 
-        xr = (slope**2 - x0 - x1)%p
-        yr = (slope * (x0 - xr) - y0)%p
-        #xr, yr = None, None
+        xr = (slope ** 2 - x0 - x1) % p
+        yr = (slope * (x0 - xr) - y0) % p
+        # xr, yr = None, None
 
         return (xr, yr)
     else:
         raise Exception("At least one of the points is not on the curve")
+
 
 def point_double(a, b, p, x, y):
     """Define "doubling" an EC point.
@@ -149,19 +153,20 @@ def point_double(a, b, p, x, y):
         yr  = lam * (xp - xr) - yp (mod p)
 
     Returns the point representing the double of the input (x, y).
-    """  
+    """
 
     # ADD YOUR CODE BELOW
     if is_point_on_curve(a, b, p, x, y):
         if (x is None) and (y is None):
             return None, None
-        slope = ((3 * x**2 + a) * (2 * y).mod_inverse(p)) %p
-        xr = (slope**2 - 2*x)%p
-        yr = (slope * (x - xr) - y) %p
+        slope = ((3 * x ** 2 + a) * (2 * y).mod_inverse(p)) % p
+        xr = (slope ** 2 - 2 * x) % p
+        yr = (slope * (x - xr) - y) % p
 
         return xr, yr
     else:
         raise Exception("Point not on curve")
+
 
 def point_scalar_multiplication_double_and_add(a, b, p, x, y, scalar):
     """
@@ -181,11 +186,12 @@ def point_scalar_multiplication_double_and_add(a, b, p, x, y, scalar):
     P = (x, y)
 
     for i in range(scalar.num_bits()):
-        if scalar.is_bit_set(i): # Check if the i-th bit is set and perform addition
+        if scalar.is_bit_set(i):  # Check if the i-th bit is set and perform addition
             Q = point_add(a, b, p, Q[0], Q[1], P[0], P[1])
         P = point_double(a, b, p, P[0], P[1])
 
     return Q
+
 
 def point_scalar_multiplication_montgomerry_ladder(a, b, p, x, y, scalar):
     """
@@ -208,7 +214,7 @@ def point_scalar_multiplication_montgomerry_ladder(a, b, p, x, y, scalar):
     R0 = (None, None)
     R1 = (x, y)
 
-    for i in reversed(range(0,scalar.num_bits())):
+    for i in reversed(range(0, scalar.num_bits())):
         if not scalar.is_bit_set(i):
             R1 = point_add(a, b, p, R0[0], R0[1], R1[0], R1[1])
             R0 = point_double(a, b, p, R0[0], R0[1])
@@ -231,6 +237,7 @@ from hashlib import sha256
 from petlib.ec import EcGroup
 from petlib.ecdsa import do_ecdsa_sign, do_ecdsa_verify
 
+
 def ecdsa_key_gen():
     """ Returns an EC group, a random private key for signing 
         and the corresponding public key for verification"""
@@ -242,21 +249,23 @@ def ecdsa_key_gen():
 
 def ecdsa_sign(G, priv_sign, message):
     """ Sign the SHA256 digest of the message using ECDSA and return a signature """
-    plaintext =  message.encode("utf8")
+    plaintext = message.encode("utf8")
 
     ## YOUR CODE HERE
-    digest = sha256(plaintext).digest() # securely hash the message using the built-in library
-    sig = do_ecdsa_sign(G, priv_sign, digest) # sign using the private key and the function provided in petlib
+    digest = sha256(plaintext).digest()  # securely hash the message using the built-in library
+    sig = do_ecdsa_sign(G, priv_sign, digest)  # sign using the private key and the function provided in petlib
     return sig
+
 
 def ecdsa_verify(G, pub_verify, message, sig):
     """ Verify the ECDSA signature on the message """
     plaintext = message.encode("utf8")
 
     ## YOUR CODE HERE
-    digest = sha256(plaintext).digest() # securely hash the message using the built-in library
-    res = do_ecdsa_verify(G, pub_verify, sig, digest) # verify using the public key and the function provided in petlib
+    digest = sha256(plaintext).digest()  # securely hash the message using the built-in library
+    res = do_ecdsa_verify(G, pub_verify, sig, digest)  # verify using the public key and the function provided in petlib
     return res
+
 
 #####################################################
 # TASK 5 -- Diffie-Hellman Key Exchange and Derivation
@@ -274,7 +283,7 @@ def dh_get_key():
     return (G, priv_dec, pub_enc)
 
 
-def dh_encrypt(pub, message, aliceSig = None):
+def dh_encrypt(pub, message, aliceSig=None):
     """ Assume you know the public key of someone else (Bob), 
     and wish to Encrypt a message for them.
         - Generate a fresh DH key for this message.
@@ -282,18 +291,18 @@ def dh_encrypt(pub, message, aliceSig = None):
         - Use the shared key to AES_GCM encrypt the message.
         - Optionally: sign the message with Alice's key.
     """
-    
+
     ## YOUR CODE HERE
-    G, alice_priv, alice_pub = dh_get_key() # derive fresh keys
+    G, alice_priv, alice_pub = dh_get_key()  # derive fresh keys
 
-    shared_secret = alice_priv * pub # derive the shared secret
+    shared_secret = alice_priv * pub  # derive the shared secret
 
-    session_key = sha256(shared_secret.export()).digest() # use shared secret to derive a unique 256-bit session key
+    session_key = sha256(shared_secret.export()).digest()  # use shared secret to derive a unique 256-bit session key
 
-    plaintext = message.encode("utf8") # prepare the plaintext for encryption
-    iv = urandom(32) # generate a 256-bit random value
-    aes = Cipher.aes_256_gcm() # Initialize AES-GCM with 256 bit keys
-    ciphertext, tag = aes.quick_gcm_enc(session_key, iv, plaintext) # perform encryption using AES
+    plaintext = message.encode("utf8")  # prepare the plaintext for encryption
+    iv = urandom(32)  # generate a 256-bit random value
+    aes = Cipher.aes_256_gcm()  # Initialize AES-GCM with 256 bit keys
+    ciphertext, tag = aes.quick_gcm_enc(session_key, iv, plaintext)  # perform encryption using AES
 
     # check whether to implement the signature
     if aliceSig is None:
@@ -303,31 +312,30 @@ def dh_encrypt(pub, message, aliceSig = None):
         bundle = (alice_pub, iv, ciphertext, tag, sig)
     return bundle
 
-def dh_decrypt(priv, bundle, aliceVer = None):
+
+def dh_decrypt(priv, bundle, aliceVer=None):
     """ Decrypt a received message encrypted using your public key, 
     of which the private key is provided. Optionally verify 
     the message came from Alice using her verification key."""
-    
+
     ## YOUR CODE HERE
 
     # Check whether signature was implemented. Unpack the bundle accordingly
     if aliceVer is None:
         if len(bundle) != 4:
-                raise Exception("decryption failed: missing input arguments")
+            raise Exception("decryption failed: missing input arguments")
         else:
             alice_pub, iv, ciphertext, tag = bundle
     else:
         if len(bundle) != 5:
-                raise Exception("decryption failed: missing input arguments")
+            raise Exception("decryption failed: missing input arguments")
         else:
             alice_pub, iv, ciphertext, tag, sig = bundle
 
-
-
-    shared_secret = priv * alice_pub # derive the shared secret
-    session_key = sha256(shared_secret.export()).digest() # use shared secret to derive a unique 256-bit session key
-    aes = Cipher.aes_256_gcm() # Initialize AES-GCM with 256 bit keys
-    plain = aes.quick_gcm_dec(session_key, iv, ciphertext, tag) # perform decryption using AES
+    shared_secret = priv * alice_pub  # derive the shared secret
+    session_key = sha256(shared_secret.export()).digest()  # use shared secret to derive a unique 256-bit session key
+    aes = Cipher.aes_256_gcm()  # Initialize AES-GCM with 256 bit keys
+    plain = aes.quick_gcm_dec(session_key, iv, ciphertext, tag)  # perform decryption using AES
 
     message = plain.encode("utf8")
 
@@ -337,7 +345,6 @@ def dh_decrypt(priv, bundle, aliceVer = None):
             raise Exception("decryption failed: signature does not verify")
 
     return message
-
 
 
 ## NOTE: populate those (or more) tests
@@ -355,6 +362,7 @@ def test_encrypt():
     assert len(ciphertext) == len(message)
     assert len(tag) == 16
 
+
 def test_encrypt_with_sig():
     G, bob_priv, bob_pub = dh_get_key()
     message = u"Hello World!"
@@ -365,6 +373,7 @@ def test_encrypt_with_sig():
     alice_pub, iv, ciphertext, tag, sig = bundled_ciphertext
 
     assert ecdsa_verify(G, aliceVer, message, sig)
+
 
 def test_decrypt():
     G, bob_priv, bob_pub = dh_get_key()
@@ -378,6 +387,7 @@ def test_decrypt():
 
     m = dh_decrypt(bob_priv, bundled_ciphertext)
     assert m == message
+
 
 def test_decrypt_with_sig():
     G, bob_priv, bob_pub = dh_get_key()
@@ -394,6 +404,7 @@ def test_decrypt_with_sig():
 
     m = dh_decrypt(bob_priv, bundled_ciphertext, aliceVer)
     assert m == message
+
 
 def test_fails():
     from pytest import raises
@@ -417,7 +428,7 @@ def test_fails():
     assert 'decryption failed' in str(excinfo.value)
 
     with raises(Exception) as excinfo:
-        dh_decrypt(bob_priv, (alice_pub, iv, ciphertext*2, tag))
+        dh_decrypt(bob_priv, (alice_pub, iv, ciphertext * 2, tag))
     assert 'decryption failed' in str(excinfo.value)
 
     with raises(Exception) as excinfo:
@@ -464,23 +475,35 @@ def test_fails():
 #           - Print reports on timing dependencies on secrets.
 #           - Fix one implementation to not leak information.
 
-def time_scalar_mul(r=None):
+def time_scalar_mul(N=100):
     import time
-    G = EcGroup(713) # NIST curve
+    from scipy.stats import pearsonr
+
+    G = EcGroup(713)  # NIST curve
     d = G.parameters()
     a, b, p = d["a"], d["b"], d["p"]
     g = G.generator()
     gx0, gy0 = g.get_affine()
 
-    if r is None:
+    set_bits = []
+    time_elapsed = []
+    scalar = []
+    for i in range(0,N):
         r = G.order().random()
-    else:
-        r = Bn.from_decimal(str(r))
+        scalar.append(r)
+        bit_counter = 0
+        for i in range(r.num_bits()):
+            if r.is_bit_set(i):  # Check if the i-th bit is set and perform addition
+                bit_counter = bit_counter + 1
+        set_bits.append(bit_counter)
 
-    t0 = time.clock()
-    x2, y2 = point_scalar_multiplication_double_and_add(a, b, p, gx0, gy0, r)
-    t1 = time.clock()
-    time_elapsed = t1 - t0
+        t0 = time.clock()
+        x2, y2 = point_scalar_multiplication_double_and_add(a, b, p, gx0, gy0, r)
+        t1 = time.clock()
+        time_elapsed.append(t1-t0)
 
-    return time_elapsed, r
+    corr, _ = pearsonr(set_bits, time_elapsed)
 
+    print 'With the current implementation of the double-and-add algorithm,\n ' \
+          'the correlation between the number of set bits in the scalar ' \
+          'and the time elapsed is approximately\n c = %.3f' % corr
