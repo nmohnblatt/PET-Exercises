@@ -182,15 +182,21 @@ def point_scalar_multiplication_double_and_add(a, b, p, x, y, scalar):
         return Q
 
     """
-    Q = (None, None)
-    P = (x, y)
+    # Check that the point is on the curve.
+    # If so apply the algorithm, otherwise raise an exception
+    if is_point_on_curve(a, b, p, x, y):
+        Q = (None, None)
+        P = (x, y)
 
-    for i in range(scalar.num_bits()):
-        if scalar.is_bit_set(i):  # Check if the i-th bit is set and perform addition
-            Q = point_add(a, b, p, Q[0], Q[1], P[0], P[1])
-        P = point_double(a, b, p, P[0], P[1])
+        for i in range(scalar.num_bits()):
+            if scalar.is_bit_set(i):  # Check if the i-th bit is set and perform addition
+                Q = point_add(a, b, p, Q[0], Q[1], P[0], P[1])
+            P = point_double(a, b, p, P[0], P[1])
 
-    return Q
+        return Q
+    else:
+        raise Exception("Point not on curve")
+
 
 
 def point_scalar_multiplication_montgomerry_ladder(a, b, p, x, y, scalar):
@@ -211,18 +217,25 @@ def point_scalar_multiplication_montgomerry_ladder(a, b, p, x, y, scalar):
         return R0
 
     """
-    R0 = (None, None)
-    R1 = (x, y)
+    # Check that the point is on the curve.
+    # If so apply the algorithm, otherwise raise an exception
+    if is_point_on_curve(a, b, p, x, y):
+        R0 = (None, None)
+        R1 = (x, y)
 
-    for i in reversed(range(0, scalar.num_bits())):
-        if not scalar.is_bit_set(i):
-            R1 = point_add(a, b, p, R0[0], R0[1], R1[0], R1[1])
-            R0 = point_double(a, b, p, R0[0], R0[1])
-        else:
-            R0 = point_add(a, b, p, R0[0], R0[1], R1[0], R1[1])
-            R1 = point_double(a, b, p, R1[0], R1[1])
+        for i in reversed(range(0, scalar.num_bits())):
+            if not scalar.is_bit_set(i):
+                R1 = point_add(a, b, p, R0[0], R0[1], R1[0], R1[1])
+                R0 = point_double(a, b, p, R0[0], R0[1])
+            else:
+                R0 = point_add(a, b, p, R0[0], R0[1], R1[0], R1[1])
+                R1 = point_double(a, b, p, R1[0], R1[1])
+        return R0
+    else:
+        raise Exception("Point not on curve")
 
-    return R0
+
+
 
 
 #####################################################
@@ -477,9 +490,9 @@ def test_fails():
 
 def time_scalar_mul(N=100):
     # Calculate the correlation between the number of bits set in the scalar and the time it takes to run multiplication
-    # using the double-and-add algorithm. While we expect to find a strong linear relationship (one extra point addition
-    # each time a bit is set), this is not what is observed: correlation between number of set bits and time elapsed is
-    # usually between 0 and 0.4.
+    # using the double-and-add algorithm. While we expect to find a strong linear relationship (for each set bit, there
+    # should be one extra point addition), this is not what is observed: correlation between number of set bits and
+    # time elapsed is usually between 0 and 0.4; except on the first run of the code where it is usually approx 0.6
     #
     # NOTE: for this function to run, you will need to install the scipy package
     #
@@ -512,6 +525,6 @@ def time_scalar_mul(N=100):
 
     corr, _ = pearsonr(set_bits, time_elapsed)
 
-    print 'With the current implementation of the double-and-add algorithm,\n ' \
-          'the correlation between the number of set bits in the scalar ' \
-          'and the time elapsed is approximately\n c = %.3f' % corr
+    print 'With the current implementation of the double-and-add algorithm,\n' \
+          'the correlation between the number of set bits in the scalar and\n' \
+          'the time elapsed is approximately c = {} (over {} iterations)'.format(corr, N)
