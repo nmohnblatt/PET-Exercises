@@ -237,7 +237,7 @@ def mix_server_n_hop(private_key, message_list, final=False):
             hmac_plaintext = aes_ctr_enc_dec(hmac_key, iv, other_mac)
             new_hmacs += [hmac_plaintext]
 
-        # Decrypt address & message
+        # Decrypt address & message=
         iv = b"\x00"*16
         
         address_plaintext = aes_ctr_enc_dec(address_key, iv, msg.address)
@@ -281,6 +281,51 @@ def mix_client_n_hop(public_keys, address, message):
     client_public_key  = private_key * G.generator()
 
     ## ADD CODE HERE
+    hmacs = []
+    blinding_factor = 1
+    address_cipher = address_plaintext
+    message_cipher = message_plaintext
+    for mix_key in public_keys:
+        # Derive shared key
+        blinded_key = blinding_factor * mix_key
+        shared_element = private_key * blinded_key
+        key_material = sha512(shared_element.export()).digest()
+
+        # Use key material to derive smaller keys
+        hmac_key = key_material[:16]
+        address_key = key_material[16:32]
+        message_key = key_material[32:48]
+
+        # Extract a blinding factor for the public_key
+        blinding_factor = blinding_factor * Bn.from_binary(key_material[48:])
+
+        # Encrypt address and message
+        iv = b"\x00" * 16
+        address_cipher = aes_ctr_enc_dec(address_key, iv, address_cipher)
+        message_cipher = aes_ctr_enc_dec(message_key, iv, message_cipher)
+
+
+        # Produce hmac
+        h = Hmac(b"sha512", hmac_key)
+
+        for other_mac in hmacs:
+            h.update(other_mac)
+
+        h.update(address_cipher)
+        h.update(message_cipher)
+
+        mac = h.digest()
+        expected_mac = mac[:20]
+
+        new_hmacs = []
+        for i, other_mac in enumerate(hmacs[1:]):
+            iv = pack("H14s", i, b"\x00" * 14)
+
+            hmac_ciphertext = aes_ctr_enc_dec(hmac_key, iv, other_mac)
+            new_hmacs += [hmac_ciphertext]
+
+        hmacs = [expected_mac] + new_hmacs
+
 
     return NHopMixMessage(client_public_key, hmacs, address_cipher, message_cipher)
 
