@@ -150,8 +150,8 @@ def mix_client_one_hop(public_key, address, message):
     h = Hmac(b"sha512", hmac_key)
     h.update(address_cipher)
     h.update(message_cipher)
-    mac = h.digest()
-    expected_mac = mac[:20]
+    long_mac = h.digest()
+    expected_mac = long_mac[:20]
 
     return OneHopMixMessage(client_public_key, expected_mac, address_cipher, message_cipher)
 
@@ -281,53 +281,78 @@ def mix_client_n_hop(public_keys, address, message):
     client_public_key  = private_key * G.generator()
 
     ## ADD CODE HERE
-    hmacs = []
-    blinding_factor = 1
-    address_cipher = address_plaintext
-    message_cipher = message_plaintext
-    for mix_key in public_keys:
-        # Derive shared key
-        blinded_key = blinding_factor * mix_key
-        shared_element = private_key * blinded_key
-        key_material = sha512(shared_element.export()).digest()
+    # Prepare plaintext message in standard format
+    plain_msg = NHopMixMessage(client_public_key, [], address_plaintext, message_plaintext)
 
-        # Use key material to derive smaller keys
-        hmac_key = key_material[:16]
-        address_key = key_material[16:32]
-        message_key = key_material[32:48]
+    # Encode messages recursively using a separate function
+    mix_message = n_hop_recursive(public_keys, private_key, plain_msg)
 
-        # Extract a blinding factor for the public_key
-        blinding_factor = blinding_factor * Bn.from_binary(key_material[48:])
+
+    return mix_message
+
+
+def n_hop_recursive(mix_public_keys, client_private_key, msg):
+    shared_element = client_private_key * mix_public_keys[0]
+    key_material = sha512(shared_element.export()).digest()
+
+    # Use key material to derive smaller keys
+    hmac_key = key_material[:16]
+    address_key = key_material[16:32]
+    message_key = key_material[32:48]
+
+    blinding_factor = Bn.from_binary(key_material[48:])
+
+    if len(mix_public_keys) == 1: # Base case, only one hop
+        # Encrypt address and message
+        iv = b"\x00" * 16
+        address_cipher = aes_ctr_enc_dec(address_key, iv, msg.address)
+        message_cipher = aes_ctr_enc_dec(message_key, iv, msg.message)
+
+        # Produce first hmac
+        h = Hmac(b"sha512", hmac_key)
+
+        h.update(address_cipher)
+        h.update(message_cipher)
+
+        long_mac = h.digest()
+        expected_mac = long_mac[:20]
+        hmacs = [expected_mac]
+    else: # recursion rule: for n-th hop, find n-1 hop and perform appropriate encryptions
+        # Derive blinded private key
+        new_private_key = client_private_key*blinding_factor
+
+        # Perform encoding for messages up to the current mix
+        n_minus_one_hop_message = n_hop_recursive(mix_public_keys[1:], new_private_key, msg)
 
         # Encrypt address and message
         iv = b"\x00" * 16
-        address_cipher = aes_ctr_enc_dec(address_key, iv, address_cipher)
-        message_cipher = aes_ctr_enc_dec(message_key, iv, message_cipher)
+        address_cipher = aes_ctr_enc_dec(address_key, iv, n_minus_one_hop_message.address)
+        message_cipher = aes_ctr_enc_dec(message_key, iv, n_minus_one_hop_message.message)
 
+        # Encrypt all previous hmacs
+        encrypted_hmacs = []
+        for i, other_mac in enumerate(n_minus_one_hop_message.hmacs):
+            iv = pack("H14s", i, b"\x00" * 14)
 
-        # Produce hmac
+            hmac_ciphertext = aes_ctr_enc_dec(hmac_key, iv, other_mac)
+            encrypted_hmacs += [hmac_ciphertext]
+
+        # Produce new hmac
         h = Hmac(b"sha512", hmac_key)
 
-        for other_mac in hmacs:
+        for other_mac in encrypted_hmacs:
             h.update(other_mac)
 
         h.update(address_cipher)
         h.update(message_cipher)
 
-        mac = h.digest()
-        expected_mac = mac[:20]
+        long_mac = h.digest()
+        expected_mac = long_mac[:20]
 
-        new_hmacs = []
-        for i, other_mac in enumerate(hmacs[1:]):
-            iv = pack("H14s", i, b"\x00" * 14)
-
-            hmac_ciphertext = aes_ctr_enc_dec(hmac_key, iv, other_mac)
-            new_hmacs += [hmac_ciphertext]
-
-        hmacs = [expected_mac] + new_hmacs
+        hmacs = [expected_mac] + encrypted_hmacs
 
 
-    return NHopMixMessage(client_public_key, hmacs, address_cipher, message_cipher)
+    return NHopMixMessage(msg.ec_public_key, hmacs, address_cipher, message_cipher)
 
 
 

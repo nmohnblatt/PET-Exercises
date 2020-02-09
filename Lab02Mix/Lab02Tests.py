@@ -174,7 +174,7 @@ def test_Alice_encode_3_hop():
     o = G.order()
 
     private_keys = [o.random() for _ in range(3)]
-    public_keys  = [pk * g for pk in private_keys]
+    public_keys = [pk * g for pk in private_keys]
 
     address = b"Alice"
     message = b"Dear Alice,\nHello!\nBob"
