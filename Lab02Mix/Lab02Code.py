@@ -317,7 +317,7 @@ def n_hop_recursive(mix_public_keys, client_private_key, msg):
         long_mac = h.digest()
         expected_mac = long_mac[:20]
         hmacs = [expected_mac]
-    else: # recursion rule: for n-th hop, find n-1 hop and perform appropriate encryptions
+    else: # recursion rule: at n-th hop, find n-1 hop and perform appropriate encryptions on resulting message
         # Derive blinded private key
         new_private_key = client_private_key*blinding_factor
 
@@ -401,8 +401,17 @@ def analyze_trace(trace, target_number_of_friends, target=0):
     """
 
     ## ADD CODE HERE
+    c = Counter()
 
-    return []
+    for round in trace:
+        senders = round[0]
+        receivers = round[1]
+        if target in senders:
+            for single_receiver in receivers:
+                c[single_receiver] += 1
+
+
+    return dict(c.most_common(target_number_of_friends)).keys()
 
 ## TASK Q1 (Question 1): The mix packet format you worked on uses AES-CTR with an IV set to all zeros. 
 #                        Explain whether this is a security concern and justify your answer.
