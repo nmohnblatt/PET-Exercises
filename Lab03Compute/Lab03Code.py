@@ -33,6 +33,11 @@ def keyGen(params):
    
    # ADD CODE HERE
 
+   priv = o.random()
+   pub = priv * g
+
+
+
    return (priv, pub)
 
 def encrypt(params, pub, m):
@@ -41,6 +46,10 @@ def encrypt(params, pub, m):
         raise Exception("Message value to low or high.")
 
    # ADD CODE HERE
+    (G, g, h, o) = params
+    k = o.random()
+    c = (k*g, k*pub+m*h)
+
 
     return c
 
@@ -76,6 +85,7 @@ def decrypt(params, priv, ciphertext):
     a , b = ciphertext
 
    # ADD CODE HERE
+    hm = b - priv*a
 
     return logh(params, hm)
 
@@ -92,6 +102,9 @@ def add(params, pub, c1, c2):
     assert isCiphertext(params, c2)
 
    # ADD CODE HERE
+    a1, b1 = c1
+    a2, b2 = c2
+    c3 = (a1+a2, b1+b2)
 
     return c3
 
@@ -101,6 +114,8 @@ def mul(params, pub, c1, alpha):
     assert isCiphertext(params, c1)
 
    # ADD CODE HERE
+    a1, b1 = c1
+    c3 = (alpha*a1, alpha*b1)
 
     return c3
 
@@ -114,6 +129,11 @@ def groupKey(params, pubKeys=[]):
     (G, g, h, o) = params
 
    # ADD CODE HERE
+    pub = G.infinite()
+
+    # Sum all public keys to obtain group public key
+    for key in pubKeys:
+        pub += key
 
     return pub
 
@@ -123,6 +143,10 @@ def partialDecrypt(params, priv, ciphertext, final=False):
     assert isCiphertext(params, ciphertext)
     
     # ADD CODE HERE
+    a1, b1 = ciphertext
+
+    # Remove one layer of encryption
+    b1 = b1 - priv * a1
 
     if final:
         return logh(params, b1)
@@ -143,6 +167,14 @@ def corruptPubKey(params, priv, OtherPubKeys=[]):
     (G, g, h, o) = params
     
    # ADD CODE HERE
+    # Generate a key such that the group public key is that of the attacker
+    # attacker pretends his key is attacker_pub - sum_of_all_other_pub
+
+    attacker_pub = priv * g
+    pub = attacker_pub
+    for key in OtherPubKeys:
+        pub += key.pt_neg()
+
 
     return pub
 
@@ -158,6 +190,13 @@ def encode_vote(params, pub, vote):
     assert vote in [0, 1]
 
    # ADD CODE HERE
+    if vote == 1:
+        v0 = encrypt(params, pub, 0)
+        v1 = encrypt(params, pub, 1)
+    else:
+        v0 = encrypt(params, pub, 1)
+        v1 = encrypt(params, pub, 0)
+
 
     return (v0, v1)
 
@@ -167,6 +206,14 @@ def process_votes(params, pub, encrypted_votes):
     assert isinstance(encrypted_votes, list)
     
    # ADD CODE HERE
+    # Initialise the tallies to 0
+    tv0 = encrypt(params, pub, 0)
+    tv1 = encrypt(params, pub, 0)
+
+    # Count the number of positive votes for each
+    for vote in encrypted_votes:
+        tv0 = add(params,pub, tv0, vote[0])
+        tv1 = add(params, pub, tv1, vote[1])
 
     return tv0, tv1
 
