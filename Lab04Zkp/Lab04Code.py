@@ -52,6 +52,10 @@ def proveKey(params, priv, pub):
     (G, g, hs, o) = params
     
     ## YOUR CODE HERE:
+    w = o.random()
+    W = w * g
+    c = to_challenge([g, W])
+    r = (w - c*priv) % o
     
     return (c, r)
 
@@ -92,6 +96,24 @@ def proveCommitment(params, C, r, secrets):
     x0, x1, x2, x3 = secrets
 
     ## YOUR CODE HERE:
+    w0 = o.random()
+    w1 = o.random()
+    w2 = o.random()
+    w3 = o.random()
+    wr = o.random()
+
+
+    Cw = w0 * h0 + w1 * h1 + w2 * h2 + w3 * h3 + wr * g
+
+    c = to_challenge([g, h0, h1, h2, h3, Cw])
+
+    r0 = (w0 - c * x0) % o
+    r1 = (w1 - c * x1) % o
+    r2 = (w2 - c * x2) % o
+    r3 = (w3 - c * x3) % o
+
+    rr = (wr - c * r) % o
+    responses = (r0, r1, r2, r3, rr)
 
     return (c, responses)
 
@@ -139,8 +161,10 @@ def verifyDLEquality(params, K, L, proof):
     c, r = proof
 
     ## YOUR CODE HERE:
+    Kw_prime = c * K + r * g
+    Lw_prime = c * L + r * h0
 
-    return # YOUR RETURN HERE
+    return to_challenge([g, h0, Kw_prime, Lw_prime]) == c
 
 #####################################################
 # TASK 4 -- Prove correct encryption and knowledge of 
@@ -164,6 +188,20 @@ def proveEnc(params, pub, Ciphertext, k, m):
     a, b = Ciphertext
 
     ## YOUR CODE HERE:
+    # Choose random w values
+    wk = o.random()
+    wm = o.random()
+
+    # Generate appropriate witnesses
+    Wk = wk * g # prove knowledge of discrete log (task 1)
+    Wm = wk * pub + wm * h0 # prove commitment C = b = k*pub+m*h (task 2)
+
+    # Generate challenge using Fiat-Shamir heuristic, including both witnesses
+    c = to_challenge([g, h0, Wk, Wm])
+
+    rk = (wk - c * k) % o
+    rm = (wm - c * m) % o
+
 
     return (c, (rk, rm))
 
@@ -174,8 +212,10 @@ def verifyEnc(params, pub, Ciphertext, proof):
     (c, (rk, rm)) = proof
 
     ## YOUR CODE HERE:
+    Wk_prime = c * a + rk * g
+    Wm_prime = c * b + rm * h0 + rk * pub
 
-    return ## YOUR RETURN HERE
+    return to_challenge([g, h0, Wk_prime, Wm_prime]) == c
 
 
 #####################################################
@@ -199,16 +239,45 @@ def prove_x0eq10x1plus20(params, C, x0, x1, r):
     (G, g, (h0, h1, h2, h3), o) = params
 
     ## YOUR CODE HERE:
+    w1 = o.random()
+    wr = o.random()
 
-    return ## YOUR RETURN HERE
+    Cw = w1 * (10*h0) + w1 * h1 + wr * g
+
+    c = to_challenge([g, h0, h1, Cw])
+
+    r1 = (w1 - c * x1) % o
+    rr = (wr - c * r) % o
+
+    responses = (r1, rr)
+
+    return c, responses
 
 def verify_x0eq10x1plus20(params, C, proof):
     """ Verify that proof of knowledge of C and x0 = 10 x1 + 20. """
     (G, g, (h0, h1, h2, h3), o) = params
 
     ## YOUR CODE HERE:
+    c, responses = proof
+    (r1, rr) = responses
 
-    return ## YOUR RETURN HERE
+    Cw_prime = c * (C-20*h0) + r1 * (10*h0) + r1 * h1 + rr * g
+
+    return to_challenge([g, h0, h1, Cw_prime]) == c
+
+
+def test_proveRel_incorrect2():
+    """ My own test to check if Task 5 works correctly. It was possible to pass the standard test without proving
+     the linear relationship between the secrets """
+    params = setup()
+    x1 = 20
+    (G, g, (h0, h1, h2, h3), o) = params
+    r = o.random()
+
+    x0 = (10 * x1 + 10)
+    C = r * g + x1 * h1 + x0 * h0
+    proof = prove_x0eq10x1plus20(params, C, x0, x1, r)
+    assert not verify_x0eq10x1plus20(params, C, proof)
 
 #####################################################
 # TASK 6 -- (OPTIONAL) Prove that a ciphertext is either 0 or 1
