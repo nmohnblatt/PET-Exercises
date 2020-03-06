@@ -193,8 +193,8 @@ def proveEnc(params, pub, Ciphertext, k, m):
     wm = o.random()
 
     # Generate appropriate witnesses
-    Wk = wk * g # prove knowledge of discrete log (task 1)
-    Wm = wk * pub + wm * h0 # prove commitment C = b = k*pub+m*h (task 2)
+    Wk = wk * g # prove we know k and a = k*g (task 1)
+    Wm = wk * pub + wm * h0 # prove we know m and b = k*pub+m*h (task 2)
 
     # Generate challenge using Fiat-Shamir heuristic, including both witnesses
     c = to_challenge([g, h0, Wk, Wm])
