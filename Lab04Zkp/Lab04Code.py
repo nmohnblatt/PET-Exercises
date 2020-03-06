@@ -239,10 +239,16 @@ def prove_x0eq10x1plus20(params, C, x0, x1, r):
     (G, g, (h0, h1, h2, h3), o) = params
 
     ## YOUR CODE HERE:
+    # Notice that C = r * g + x1 * h1 + x0 * h0 = r * g + x1 * h1 + x1 * 10*h0 + 20*h0
+    # Now consider C' = C - 20*h0 = r * g + x1 * h1 + x1 * 10*h0
+    # C' takes the form of a commitment on a DL representation
+    # We can apply the same process as in task 2 on C'
+
+
     w1 = o.random()
     wr = o.random()
 
-    Cw = w1 * (10*h0) + w1 * h1 + wr * g
+    Cw = wr * g + w1 * h1 + w1 * (10*h0)
 
     c = to_challenge([g, h0, h1, Cw])
 
@@ -266,7 +272,7 @@ def verify_x0eq10x1plus20(params, C, proof):
     return to_challenge([g, h0, h1, Cw_prime]) == c
 
 
-def test_proveRel_incorrect2():
+def test_pers_proveRel_incorrect():
     """ My own test to check if Task 5 works correctly. It was possible to pass the standard test without proving
      the linear relationship between the secrets """
     params = setup()
