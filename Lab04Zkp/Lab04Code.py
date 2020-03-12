@@ -193,11 +193,11 @@ def proveEnc(params, pub, Ciphertext, k, m):
     wm = o.random()
 
     # Generate appropriate witnesses
-    Wk = wk * g # prove we know k and a = k*g (task 1)
-    Wm = wk * pub + wm * h0 # prove we know m and b = k*pub+m*h (task 2)
+    Wa = wk * g # prove we know k and a = k*g (task 1)
+    Wb = wk * pub + wm * h0 # prove we know m and b = k*pub+m*h (task 2)
 
-    # Generate challenge using Fiat-Shamir heuristic, including both witnesses
-    c = to_challenge([g, h0, Wk, Wm])
+    # Generate challenge using Fiat-Shamir heuristic, including both witnesses and ciphertext
+    c = to_challenge([g, a, b, h0, Wa, Wb])
 
     rk = (wk - c * k) % o
     rm = (wm - c * m) % o
@@ -212,10 +212,10 @@ def verifyEnc(params, pub, Ciphertext, proof):
     (c, (rk, rm)) = proof
 
     ## YOUR CODE HERE:
-    Wk_prime = c * a + rk * g
-    Wm_prime = c * b + rm * h0 + rk * pub
+    Wa_prime = c * a + rk * g
+    Wb_prime = c * b + rm * h0 + rk * pub
 
-    return to_challenge([g, h0, Wk_prime, Wm_prime]) == c
+    return to_challenge([g, a, b, h0, Wa_prime, Wb_prime]) == c
 
 
 #####################################################
