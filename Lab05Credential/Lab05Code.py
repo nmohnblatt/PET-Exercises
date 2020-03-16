@@ -91,6 +91,21 @@ def credential_EncryptUserSecret(params, pub, priv):
     #                     pub = priv * g}
 
     ## TODO
+    wk = o.random()
+    wv = o.random()
+    wpriv = o.random()
+
+    # Generate appropriate witnesses
+    Wa = wk * g
+    Wb = wk * pub + wv * g
+    Wpub = wpriv * g
+
+    # Generate challenge using Fiat-Shamir heuristic, including both witnesses
+    c = to_challenge([g, pub, a, b, Wa, Wb, Wpub])
+
+    rk = (wk - c * k) % o
+    rv = (wv - c * v) % o
+    rpriv = (wpriv - c * priv) % o
 
     # Return the fresh v, the encryption of v and the proof.
     proof = (c, rk, rv, rpriv)
@@ -143,11 +158,16 @@ def credential_Issuing(params, pub, ciphertext, issuer_params):
     #     and x1b = (b * x1) mod o 
     
     # TODO 1 & 2
+    u = b*g
+
+    XIB = b*X1
+    x1b = (b*x1) % o
 
     # 3) The encrypted MAC is u, and an encrypted u_prime defined as 
     #    E( (b*x0) * g + (x1 * b * v) * g ) + E(0; r_prime)
     
     # TODO 3
+
 
     ciphertext = new_a, new_b
 
