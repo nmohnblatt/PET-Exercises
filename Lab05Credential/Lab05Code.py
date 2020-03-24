@@ -158,16 +158,19 @@ def credential_Issuing(params, pub, ciphertext, issuer_params):
     #     and x1b = (b * x1) mod o 
     
     # TODO 1 & 2
-    u = b*g
+    beta = o.random()
+    u = beta*g
 
-    XIB = b*X1
-    x1b = (b*x1) % o
+    X1b = beta*X1
+    x1b = (beta*x1) % o
 
     # 3) The encrypted MAC is u, and an encrypted u_prime defined as 
     #    E( (b*x0) * g + (x1 * b * v) * g ) + E(0; r_prime)
     
     # TODO 3
-
+    r_prime = o.random()
+    new_a = r_prime * g + x1b * a
+    new_b = r_prime * pub + x1b * b + x0 * u
 
     ciphertext = new_a, new_b
 
@@ -182,6 +185,23 @@ def credential_Issuing(params, pub, ciphertext, issuer_params):
     #       Cx0 = x0 * g + x0_bar * h }
 
     ## TODO proof
+    ws = []
+    for i in range(0,6): ws.append(o.random())
+
+    WX1 = ws[0] * h
+    WX1b = ws[1] * X1
+    WX1b_2 = ws[2] * h
+    Wu = ws[1] * g
+    Wnewa = ws[3] * g + ws[2] * a
+    Wnewb = ws[3] * pub + ws[2] * b + ws[4] * u
+    WCx0 = ws[4] * g + ws[5] * h
+
+
+    c = to_challenge([g, h, pub, a, b, X1, X1b, new_a, new_b, Cx0, WX1, WX1b, WX1b_2, Wu, Wnewa, Wnewb, WCx0])
+
+    rs = (ws[0] - c*x1) %o, (ws[1] - c*beta) %o, (ws[2] - c*x1b) %o, (ws[3] - c*r_prime) %o, (ws[4] - c*x0) %o, (ws[5] - c*x0_bar) %o
+
+
 
     proof = (c, rs, X1b) # Where rs are multiple responses
 
@@ -247,13 +267,23 @@ def credential_show(params, issuer_pub_params, u, u_prime, v):
     #    random alpha.
     
     # TODO 1
+    alpha = o.random()
+
+    ua, ua_prime = alpha * u, alpha * u_prime
+
 
     # 2) Implement the "Show" protocol (p.9) for a single attribute v.
     #    Cv is a commitment to v and Cup is C_{u'} in the paper. 
 
     # TODO 2
+    z1 = o.random()
+    r = o.random()
 
-    tag = (u, Cv, Cup)
+    Cv = v * ua + z1 * h
+    Cup = ua_prime + r * g
+
+
+    tag = (ua, Cv, Cup)
 
     # Proof or knowledge of the statement
     #
@@ -262,6 +292,19 @@ def credential_show(params, issuer_pub_params, u, u_prime, v):
     #           V  = r * (-g) + z1 * X1 }
 
     ## TODO proof
+
+    wr = o.random()
+    wz1 = o.random()
+    wv = o.random()
+
+    WCv = wv * ua + wz1 * h
+    WV = wr * (-g) + wz1 * X1
+
+    c = to_challenge([g, h, X1, ua, Cv, Cup, WCv, WV])
+
+    rr = (wr - c * r) %o
+    rz1 = (wz1 - c * z1) % o
+    rv = (wv - c * v) % o
 
     proof = (c, rr, rz1, rv)
     return tag, proof
@@ -278,9 +321,16 @@ def credential_show_verify(params, issuer_params, tag, proof):
 
     # Verify proof of correct credential showing
     (c, rr, rz1, rv) = proof
-    (u, Cv, Cup) = tag
+    (ua, Cv, Cup) = tag
 
     ## TODO
+
+    V_prime = x0 * ua + x1 * Cv - Cup # recompute V using verifier formula
+
+    c_prime = to_challenge([g, h, X1, ua, Cv, Cup,
+                            c * Cv + rz1 * h + rv * ua,
+                            c * V_prime + rr * (-g) + rz1 * X1
+                            ])
 
     return c == c_prime
 
