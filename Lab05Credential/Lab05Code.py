@@ -355,6 +355,45 @@ def credential_show_pseudonym(params, issuer_pub_params, u, u_prime, v, service_
     pseudonym = v * N
 
     ## TODO (use code from above and modify as necessary!)
+    alpha = o.random()
+
+    ua, ua_prime = alpha * u, alpha * u_prime
+
+    # 2) Implement the "Show" protocol (p.9) for a single attribute v.
+    #    Cv is a commitment to v and Cup is C_{u'} in the paper.
+
+    # TODO 2
+    z1 = o.random()
+    r = o.random()
+
+    Cv = v * ua + z1 * h
+    Cup = ua_prime + r * g
+
+    tag = (ua, Cv, Cup)
+
+    # Proof or knowledge of the statement
+    #
+    # NIZK{(r, z1,v):
+    #           Cv = v *u + z1 * h and
+    #           V  = r * (-g) + z1 * X1 }
+
+    ## TODO proof
+
+    wr = o.random()
+    wz1 = o.random()
+    wv = o.random()
+
+    WCv = wv * ua + wz1 * h
+    WV = wr * (-g) + wz1 * X1
+    WPseudo = wv * N
+
+    c = to_challenge([g, h, X1, ua, N, Cv, Cup, WCv, WV, WPseudo])
+
+    rr = (wr - c * r) % o
+    rz1 = (wz1 - c * z1) % o
+    rv = (wv - c * v) % o
+
+    proof = (c, rr, rz1, rv)
 
     return pseudonym, tag, proof
 
@@ -375,6 +414,19 @@ def credential_show_verify_pseudonym(params, issuer_params, pseudonym, tag, proo
     ## Verify the correct Show protocol and the correctness of the pseudonym
 
     # TODO (use code from above and modify as necessary!)
+    # Verify proof of correct credential showing
+    (c, rr, rz1, rv) = proof
+    (ua, Cv, Cup) = tag
+
+    ## TODO
+
+    V_prime = x0 * ua + x1 * Cv - Cup  # recompute V using verifier formula
+
+    c_prime = to_challenge([g, h, X1, ua, N, Cv, Cup,
+                            c * Cv + rz1 * h + rv * ua,
+                            c * V_prime + rr * (-g) + rz1 * X1,
+                            c * pseudonym + rv * N
+                            ])
 
     return c == c_prime
 
